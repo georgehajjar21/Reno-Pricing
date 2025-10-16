@@ -1,33 +1,8 @@
-{
-  "base_rates": {
-    "painting": {
-      "per_sqft": 2.25,
-      "materials_pct": 0.2
-    },
-    "flooring": {
-      "per_sqft": 4.0,
-      "materials_pct": 0.35
-    },
-    "plumbing": {
-      "per_fixture": 180.0,
-      "materials_pct": 0.25
-    },
-    "electrical": {
-      "per_point": 150.0,
-      "materials_pct": 0.2
-    },
-    "cleaning": {
-      "per_sqft": 0.35,
-      "materials_pct": 0.05
-    }
-  },
-  "region_multipliers": {
-    "York": 1.03,
-    "Durham": 1.0,
-    "GTA": 1.05,
-    "Ontario": 1.0,
-    "Canada": 1.0
-  },
-  "default_region": "Durham",
-  "hst_rate": 0.13
+"base_rates": {
+  "painting": { "per_sqft": 3.5, "materials_pct": 0.2 },
+  "flooring": { "per_sqft": 6.0, "materials_pct": 0.35 },
+  "plumbing": { "per_fixture": 250, "materials_pct": 0.4 },
+  "framing": { "per_sqft": 8.5, "materials_pct": 0.25 },
+  "deck_building": { "per_sqft": 12.0, "materials_pct": 0.3 },
+  "drywall": { "per_sqft": 5.0, "materials_pct": 0.25 }
 }
