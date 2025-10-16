@@ -20,8 +20,12 @@ app = FastAPI(
 )
 
 class EstimateIn(BaseModel):
-    job_type: Literal["painting", "flooring", "plumbing", "electrical", "cleaning"]
-    inputs: Dict[str, float] = Field(default_factory=dict, description="Numbers like area_sqft, rooms, coats, fixtures, points")
+    job_type: str = Field(..., description="Any type of renovation or construction work (e.g., painting, drywall, flooring, plumbing, framing, etc.)")
+    inputs: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Numeric parameters such as area_sqft, length_ft, rooms, fixtures, or any measurable units relevant to the job."
+    )
+
     region: Optional[str] = Field(default=None, description="York, Durham, GTA, Ontario, Canada")
     include_tax: bool = True
 
