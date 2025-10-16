@@ -1,0 +1,25 @@
+
+### Health Check
+GET http://localhost:8000/health
+
+### Painting Estimate
+POST http://localhost:8000/estimate
+Content-Type: application/json
+
+{
+  "job_type": "painting",
+  "inputs": {"area_sqft": 400, "rooms": 2, "coats": 2},
+  "region": "GTA",
+  "include_tax": true
+}
+
+### Work Order (Printable HTML)
+POST http://localhost:8000/workorder
+Content-Type: application/json
+
+{
+  "job_type": "flooring",
+  "inputs": {"area_sqft": 650},
+  "region": "Durham",
+  "include_tax": true
+}
