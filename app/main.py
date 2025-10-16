@@ -288,6 +288,11 @@ def export_csv(body: Dict[str, Any]):
     w.writerow([])
     w.writerow(["TOTALS","","","",f"{total_sub:.2f}",f"{total_tax:.2f}",f"{total_all:.2f}","CAD"])
     return PlainTextResponse(content=output.getvalue(), media_type="text/csv")
+@app.get("/refresh")
+def force_refresh():
+    import auto_refresh
+    auto_refresh.refresh_prices()
+    return {"status": "ok", "message": "Prices refreshed manually."}
 
 # -----------------------------------------------------
 # Auto refresh on startup (free Render-tier workaround)
