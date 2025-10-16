@@ -1,12 +1,9 @@
 from fastapi import FastAPI, HTTPException, Response
-from pydantic import BaseModel, Field
-from typing import Dict, List, Optional, Any
-import json, os, math, csv, io
 from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel, Field
+from typing import Dict, List, Optional, Literal, Any
+import json, os, math
 
-# -----------------------------
-# Configuration
-# -----------------------------
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(os.path.dirname(APP_DIR), "data", "prices.json")
 
@@ -16,15 +13,9 @@ with open(DATA_PATH, "r", encoding="utf-8") as f:
 DEFAULT_REGION = PRICE_CFG.get("default_region", "Durham")
 HST_RATE = PRICE_CFG.get("hst_rate", 0.13)
 
-app = FastAPI(
-    title="Reno Pricing App",
-    version="1.0.0",
-    servers=[{"url": "https://reno-pricing.onrender.com"}]
-)
+app = FastAPI(title="Reno Pricing App", version="1.0.0")
 
-# -----------------------------
-# Models
-# -----------------------------
+# -------------------- MODELS --------------------
 class Modifier(BaseModel):
     name: str
     factor: float
@@ -32,10 +23,7 @@ class Modifier(BaseModel):
 class EstimateIn(BaseModel):
     job_type: str
     inputs: Dict[str, float] = Field(default_factory=dict)
-    complexity_modifiers: Dict[str, float] = Field(
-        default_factory=dict,
-        description="Optional modifiers such as furniture_moving:1.1, tight_access:1.15, premium_finish:1.2, etc."
-    )
+    complexity_modifiers: Dict[str, float] = Field(default_factory=dict)
     region: Optional[str] = None
     include_tax: bool = True
     notes: Optional[str] = None
@@ -52,11 +40,8 @@ class EstimateOut(BaseModel):
     currency: str = "CAD"
     notes: Optional[str] = None
 
-class LineItem(BaseModel):
-    job_type: str
-    inputs: Dict[str, float] = {}
-    region: Optional[str] = None
-    include_tax: bool = True
+class BatchIn(BaseModel):
+    items: List[EstimateIn]
 
 class BatchOut(BaseModel):
     lines: List[EstimateOut]
@@ -66,9 +51,7 @@ class BatchOut(BaseModel):
     est_days_low: float
     est_days_high: float
 
-# -----------------------------
-# Utility functions
-# -----------------------------
+# -------------------- HELPERS --------------------
 def round2(x: float) -> float:
     return float(f"{x:.2f}")
 
@@ -77,83 +60,77 @@ def get_region_multiplier(region: Optional[str]) -> float:
     return float(PRICE_CFG["region_multipliers"].get(region_key, 1.0))
 
 def _days_for_line(job_type: str, inputs: Dict[str, float]) -> float:
-    area = float(inputs.get("area_sqft", 0))
-    coats = max(1.0, float(inputs.get("coats", 1)))
-    fixtures = float(inputs.get("fixtures", 0))
-    points = float(inputs.get("points", 0))
-    hours = 0.0
+    base = PRICE_CFG["base_rates"].get(job_type, {})
+    if not base:
+        return 1.0
+    area = inputs.get("area_sqft", 100)
+    if area < 50: return 0.5
+    elif area < 200: return 1.0
+    elif area < 500: return 1.5
+    elif area < 1000: return 2.5
+    elif area < 2000: return 4.0
+    else: return 6.0
 
-    if "paint" in job_type.lower():
-        days = max(0.25, (area / 350.0) * (1 + 0.1 * (coats - 1)))
-    elif "floor" in job_type.lower():
-        days = max(0.25, area / 200.0)
-    elif "plumb" in job_type.lower():
-        days = max(0.25, fixtures / 2.0)
-    elif "elect" in job_type.lower():
-        days = max(0.25, points / 6.0)
-    elif "clean" in job_type.lower():
-        hours = max(0.5, area / 500.0)
-        days = hours / 8.0
-    else:
-        days = max(0.5, area / 250.0) if area > 0 else 0.5
-
-    return float(f"{days:.2f}")
-
-# -----------------------------
-# Core Estimation Logic
-# -----------------------------
 def compute_estimate(job_type: str, inputs: Dict[str, float], region: Optional[str], include_tax: bool, complexity_modifiers: Optional[Dict[str, float]] = None) -> EstimateOut:
     base = PRICE_CFG["base_rates"].get(job_type)
     if not base:
-        raise HTTPException(status_code=400, detail=f"Unknown job_type '{job_type}'")
+        raise HTTPException(status_code=400, detail=f"Unknown job_type: {job_type}")
 
     multiplier = get_region_multiplier(region)
     labor = 0.0
     materials = 0.0
 
-    # Simple pricing logic based on available keys
-    if "per_sqft" in base:
+    if job_type in ("painting", "flooring", "tiling", "drywall", "siding", "roofing", "deck_building", "fence_install", "patio_stone", "landscaping"):
         area = float(inputs.get("area_sqft", 0))
-        base_cost = area * base["per_sqft"]
-        labor = base_cost * (1.0 - base["materials_pct"])
+        unit_price = base.get("per_sqft", 0)
+        base_cost = area * unit_price
+        labor = base_cost * (1 - base["materials_pct"])
         materials = base_cost * base["materials_pct"]
-    elif "per_fixture" in base:
-        fixtures = float(inputs.get("fixtures", 1))
-        base_cost = fixtures * base["per_fixture"]
-        labor = base_cost * (1.0 - base["materials_pct"])
+
+    elif "linear_ft" in inputs:
+        lf = float(inputs["linear_ft"])
+        unit_price = base.get("per_linear_ft", 0)
+        base_cost = lf * unit_price
+        labor = base_cost * (1 - base["materials_pct"])
         materials = base_cost * base["materials_pct"]
-    elif "per_point" in base:
-        points = float(inputs.get("points", 1))
-        base_cost = points * base["per_point"]
-        labor = base_cost * (1.0 - base["materials_pct"])
+
+    elif "fixtures" in inputs:
+        fix = float(inputs["fixtures"])
+        unit_price = base.get("per_fixture", 0)
+        base_cost = fix * unit_price
+        labor = base_cost * (1 - base["materials_pct"])
         materials = base_cost * base["materials_pct"]
+
+    elif "points" in inputs:
+        pts = float(inputs["points"])
+        unit_price = base.get("per_point", 0)
+        base_cost = pts * unit_price
+        labor = base_cost * (1 - base["materials_pct"])
+        materials = base_cost * base["materials_pct"]
+
     elif "per_unit" in base:
         units = float(inputs.get("units", 1))
-        base_cost = units * base["per_unit"]
-        labor = base_cost * (1.0 - base["materials_pct"])
+        unit_price = base["per_unit"]
+        base_cost = units * unit_price
+        labor = base_cost * (1 - base["materials_pct"])
         materials = base_cost * base["materials_pct"]
-    elif "per_linear_ft" in base:
-        length = float(inputs.get("linear_ft", 0))
-        base_cost = length * base["per_linear_ft"]
-        labor = base_cost * (1.0 - base["materials_pct"])
-        materials = base_cost * base["materials_pct"]
-    elif "per_hr" in base:
-        hours = float(inputs.get("hours", 1))
-        base_cost = hours * base["per_hr"]
-        labor = base_cost * (1.0 - base["materials_pct"])
-        materials = base_cost * base["materials_pct"]
+
     elif "per_project" in base:
         base_cost = base["per_project"]
-        labor = base_cost * (1.0 - base["materials_pct"])
+        labor = base_cost * (1 - base["materials_pct"])
         materials = base_cost * base["materials_pct"]
+
     else:
-        raise HTTPException(status_code=400, detail=f"No recognized rate type for {job_type}")
+        raise HTTPException(status_code=400, detail=f"Unsupported input type for {job_type}")
 
-    # Apply complexity modifiers if present
-    complexity_factor = math.prod((complexity_modifiers or {}).values()) if complexity_modifiers else 1.0
-    labor *= complexity_factor
-    materials *= complexity_factor
+    # Apply complexity modifiers
+    total_modifier = 1.0
+    if complexity_modifiers:
+        for val in complexity_modifiers.values():
+            total_modifier *= val
 
+    labor *= total_modifier
+    materials *= total_modifier
     subtotal = (labor + materials) * multiplier
     tax = subtotal * HST_RATE if include_tax else 0.0
     total = subtotal + tax
@@ -169,13 +146,10 @@ def compute_estimate(job_type: str, inputs: Dict[str, float], region: Optional[s
         subtotal=round2(subtotal),
         tax=round2(tax),
         total=round2(total),
-        currency="CAD",
         notes=notes
     )
 
-# -----------------------------
-# Routes
-# -----------------------------
+# -------------------- ROUTES --------------------
 @app.get("/health")
 def health():
     return {"ok": True, "version": "1.0.0"}
@@ -191,34 +165,23 @@ def estimate(body: EstimateIn):
     return compute_estimate(body.job_type, body.inputs, body.region, body.include_tax, body.complexity_modifiers)
 
 @app.post("/estimate_batch", response_model=BatchOut)
-def estimate_batch(body: Dict[str, Any]):
-    items = body.get("items", [])
-    if not isinstance(items, list) or not items:
-        raise HTTPException(400, "Provide 'items': [ {job_type, inputs, region, include_tax}, ... ]")
-
+def estimate_batch(body: BatchIn):
+    items = body.items
+    if not items:
+        raise HTTPException(400, "Provide 'items': [...]")
     lines: List[EstimateOut] = []
     day_list: List[float] = []
-
     for it in items:
-        est = compute_estimate(
-            it.get("job_type", ""),
-            it.get("inputs", {}),
-            it.get("region"),
-            bool(it.get("include_tax", True)),
-            it.get("complexity_modifiers", {})
-        )
+        est = compute_estimate(it.job_type, it.inputs, it.region, it.include_tax, it.complexity_modifiers)
         lines.append(est)
-        day_list.append(_days_for_line(it.get("job_type",""), it.get("inputs", {})))
-
+        day_list.append(_days_for_line(it.job_type, it.inputs))
     total_subtotal = float(f"{sum(x.subtotal for x in lines):.2f}")
     total_tax = float(f"{sum(x.tax for x in lines):.2f}")
     total = float(f"{sum(x.total for x in lines):.2f}")
-
     trade_count = max(1, len(day_list))
     raw_days = sum(day_list)
     overlap_factor = max(0.65, 1.0 - 0.12*(trade_count-1))
     scaled = raw_days * overlap_factor
-
     return BatchOut(
         lines=lines,
         total_subtotal=total_subtotal,
@@ -232,71 +195,36 @@ def estimate_batch(body: Dict[str, Any]):
 def workorder(body: EstimateIn):
     est = compute_estimate(body.job_type, body.inputs, body.region, body.include_tax, body.complexity_modifiers)
     html = f"""
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Work Order - {est.job_type.title()}</title>
-  <style>
-    body {{ font-family: Arial, sans-serif; margin: 24px; }}
-    .card {{ border: 1px solid #ddd; padding: 16px; border-radius: 8px; max-width: 720px; }}
-    h1 {{ margin-top: 0; }}
-    .row {{ display: flex; justify-content: space-between; margin: 6px 0; }}
-    .total {{ font-weight: bold; font-size: 1.2em; }}
-    .muted {{ color: #666; font-size: 0.9em; }}
-    @media print {{ .no-print {{ display:none; }} }}
-    .btn {{ display:inline-block; padding:8px 12px; border:1px solid #333; border-radius:6px; text-decoration:none; color:#333; }}
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>Work Order — {est.job_type.title()}</h1>
-    <div class="row"><div>Region</div><div>{est.region}</div></div>
-    <div class="row"><div>Labor</div><div>CAD {est.labor:.2f}</div></div>
-    <div class="row"><div>Materials</div><div>CAD {est.materials:.2f}</div></div>
-    <div class="row"><div>Subtotal</div><div>CAD {est.subtotal:.2f}</div></div>
-    <div class="row"><div>HST (13%)</div><div>CAD {est.tax:.2f}</div></div>
-    <div class="row total"><div>Total</div><div>CAD {est.total:.2f}</div></div>
-    <p class="muted">{est.notes}</p>
-    <p class="no-print"><a class="btn" href="#" onclick="window.print()">Print</a></p>
-  </div>
-</body>
-</html>
-"""
+    <html><head><meta charset='utf-8'><title>Work Order - {est.job_type}</title></head>
+    <body style='font-family:Arial;margin:24px'>
+    <h2>Work Order — {est.job_type.title()}</h2>
+    <p>Region: {est.region}</p>
+    <p>Labor: CAD {est.labor:.2f}</p>
+    <p>Materials: CAD {est.materials:.2f}</p>
+    <p>Subtotal: CAD {est.subtotal:.2f}</p>
+    <p>HST (13%): CAD {est.tax:.2f}</p>
+    <p><b>Total: CAD {est.total:.2f}</b></p>
+    <p>{est.notes}</p></body></html>
+    """
     return Response(content=html, media_type="text/html")
 
 @app.post("/export_csv")
-def export_csv(body: Dict[str, Any]):
-    items = body.get("items", [])
-    if not isinstance(items, list) or not items:
-        raise HTTPException(400, "Provide 'items': [...]")
-
+def export_csv(body: BatchIn):
+    import io, csv
     output = io.StringIO()
-    w = csv.writer(output)
-    w.writerow(["job_type","region","labor","materials","subtotal","tax","total","currency"])
-
-    total_sub, total_tax, total_all = 0.0, 0.0, 0.0
-    for it in items:
-        est = compute_estimate(
-            it.get("job_type",""), it.get("inputs", {}),
-            it.get("region"), bool(it.get("include_tax", True)),
-            it.get("complexity_modifiers", {})
-        )
-        w.writerow([est.job_type, est.region, est.labor, est.materials, est.subtotal, est.tax, est.total, est.currency])
-        total_sub += est.subtotal; total_tax += est.tax; total_all += est.total
-
-    w.writerow([])
-    w.writerow(["TOTALS","","","",f"{total_sub:.2f}",f"{total_tax:.2f}",f"{total_all:.2f}","CAD"])
+    writer = csv.writer(output)
+    writer.writerow(["Job Type", "Region", "Labor", "Materials", "Subtotal", "Tax", "Total"])
+    for line in body.items:
+        est = compute_estimate(line.job_type, line.inputs, line.region, line.include_tax, line.complexity_modifiers)
+        writer.writerow([est.job_type, est.region, est.labor, est.materials, est.subtotal, est.tax, est.total])
     return PlainTextResponse(content=output.getvalue(), media_type="text/csv")
+
 @app.get("/refresh")
 def force_refresh():
     import auto_refresh
     auto_refresh.refresh_prices()
     return {"status": "ok", "message": "Prices refreshed manually."}
 
-# -----------------------------------------------------
-# Auto refresh on startup (free Render-tier workaround)
-# -----------------------------------------------------
 @app.on_event("startup")
 def auto_refresh_on_start():
     try:
