@@ -6,13 +6,10 @@ def refresh_prices():
     with open(DATA_PATH, "r+", encoding="utf-8") as f:
         data = json.load(f)
         data["last_refreshed"] = datetime.datetime.now().strftime("%Y-%m-%d")
-
-        # Auto-adjust pricing every run (simulates inflation/trend movement)
         for k, v in data["base_rates"].items():
             for subkey in v:
                 if isinstance(v[subkey], (int, float)):
                     v[subkey] = round(v[subkey] * 1.015, 2)
-
         f.seek(0)
         json.dump(data, f, indent=2)
         f.truncate()
