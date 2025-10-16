@@ -13,7 +13,11 @@ with open(DATA_PATH, "r", encoding="utf-8") as f:
 DEFAULT_REGION = PRICE_CFG.get("default_region", "Durham")
 HST_RATE = PRICE_CFG.get("hst_rate", 0.13)
 
-app = FastAPI(title="Reno Pricing App", version="1.0.0")
+app = FastAPI(
+    title="Reno Pricing App",
+    version="1.0.0",
+    servers=[{"url": "https://reno-pricing.onrender.com"}]
+)
 
 class EstimateIn(BaseModel):
     job_type: Literal["painting", "flooring", "plumbing", "electrical", "cleaning"]
