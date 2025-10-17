@@ -1,62 +1,37 @@
 {
+  "schema_version": "1.0",
+  "version": "2025.10.18",
+  "updated_at": "2025-10-18",
+  "sources": ["Glebany internal benchmarks", "Ontario trades references"],
+
   "default_region": "Durham",
   "hst_rate": 0.13,
-  "last_refreshed": "2025-10-16",
-
-  "base_rates": {
-    "painting":         { "per_sqft": 3.5,  "materials_pct": 0.2 },
-    "flooring":         { "per_sqft": 6.0,  "materials_pct": 0.35 },
-    "plumbing":         { "per_fixture": 250, "materials_pct": 0.4 },
-    "electrical":       { "per_point": 175, "materials_pct": 0.35 },
-    "cleaning":         { "per_sqft": 1.25, "materials_pct": 0.1 },
-    "drywall":          { "per_sqft": 5.0,  "materials_pct": 0.25 },
-    "framing":          { "per_sqft": 8.5,  "materials_pct": 0.25 },
-    "insulation":       { "per_sqft": 3.0,  "materials_pct": 0.3 },
-    "tiling":           { "per_sqft": 10.0, "materials_pct": 0.4 },
-    "deck_building":    { "per_sqft": 12.0, "materials_pct": 0.3 },
-    "fence_install":    { "per_linear_ft": 55.0, "materials_pct": 0.45 },
-    "roofing":          { "per_sqft": 9.5,  "materials_pct": 0.35 },
-    "siding":           { "per_sqft": 7.5,  "materials_pct": 0.35 },
-    "window_install":   { "per_unit": 750,  "materials_pct": 0.4 },
-    "door_install":     { "per_unit": 500,  "materials_pct": 0.35 },
-    "cabinet_install":  { "per_linear_ft": 120.0, "materials_pct": 0.4 },
-    "countertop":       { "per_linear_ft": 180.0, "materials_pct": 0.35 },
-    "demolition":       { "per_sqft": 2.5,  "materials_pct": 0.15 },
-    "foundation":       { "per_sqft": 18.0, "materials_pct": 0.35 },
-    "concrete_work":    { "per_sqft": 14.0, "materials_pct": 0.4 },
-    "stucco":           { "per_sqft": 11.0, "materials_pct": 0.35 },
-    "brickwork":        { "per_sqft": 15.0, "materials_pct": 0.4 },
-    "landscaping":      { "per_sqft": 8.0,  "materials_pct": 0.35 },
-    "excavation":       { "per_cu_yd": 95.0, "materials_pct": 0.3 },
-    "grading":          { "per_sqft": 3.0,  "materials_pct": 0.25 },
-    "paving":           { "per_sqft": 12.0, "materials_pct": 0.35 },
-    "hvac_install":     { "per_unit": 3800, "materials_pct": 0.45 },
-    "hvac_service":     { "per_unit": 250,  "materials_pct": 0.3 },
-    "kitchen_reno":     { "per_sqft": 22.0, "materials_pct": 0.4 },
-    "bathroom_reno":    { "per_sqft": 28.0, "materials_pct": 0.45 },
-    "basement_finish":  { "per_sqft": 35.0, "materials_pct": 0.4 },
-    "addition_build":   { "per_sqft": 210.0, "materials_pct": 0.5 },
-    "garage_build":     { "per_sqft": 95.0, "materials_pct": 0.4 },
-    "attic_finish":     { "per_sqft": 60.0, "materials_pct": 0.4 },
-    "mudroom_build":    { "per_sqft": 75.0, "materials_pct": 0.35 },
-    "porch_build":      { "per_sqft": 85.0, "materials_pct": 0.35 },
-    "stairs_build":     { "per_linear_ft": 180.0, "materials_pct": 0.4 },
-    "trim_moulding":    { "per_linear_ft": 15.0, "materials_pct": 0.3 },
-    "driveway":         { "per_sqft": 11.0, "materials_pct": 0.35 },
-    "retaining_wall":   { "per_sqft": 20.0, "materials_pct": 0.4 },
-    "patio_stone":      { "per_sqft": 13.0, "materials_pct": 0.35 },
-    "gazebo_pergola":   { "per_sqft": 110.0, "materials_pct": 0.4 },
-    "shed_build":       { "per_sqft": 65.0, "materials_pct": 0.35 },
-    "interior_design":  { "per_hr": 95.0,   "materials_pct": 0.1 },
-    "permit_fees":      { "per_project": 450.0, "materials_pct": 0.0 },
-    "general_labor":    { "per_hr": 55.0,   "materials_pct": 0.0 }
-  },
 
   "region_multipliers": {
-    "Durham": 1.0,
+    "Durham": 1.00,
     "York": 1.05,
-    "GTA": 1.1,
+    "GTA": 1.10,
     "Ontario": 1.08,
-    "Canada": 1.12
+    "Canada": 1.00
+  },
+
+  "base_rates": {
+    "painting":   { "per_sqft": 3.5,  "materials_pct": 0.20 },
+    "flooring":   { "per_sqft": 9.0,  "materials_pct": 0.35 },
+    "plumbing":   { "per_fixture": 275.0, "materials_pct": 0.40 },
+    "electrical": { "per_point": 195.0, "materials_pct": 0.35 },
+    "drywall":    { "per_sqft": 6.0,  "materials_pct": 0.30 },
+    "cleaning":   { "per_sqft": 1.5,  "materials_pct": 0.15 }
+  },
+
+  "productivity": {
+    "painting": { "sqft_per_day_per_person": 300 },
+    "drywall":  { "sqft_per_day_per_person": 250 }
+  },
+
+  "crew_size": {
+    "painting": 2,
+    "drywall": 2,
+    "flooring": 2
   }
 }
